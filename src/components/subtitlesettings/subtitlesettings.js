@@ -1,4 +1,6 @@
 import { AppFeature } from 'constants/appFeature';
+import { applyServerSubtitleFont, getServerSubtitleFonts, SERVER_FONT_PREFIX } from 'apps/legacy/features/playback/utils/subtitleFonts';
+import { toApi } from 'utils/jellyfin-apiclient/compat';
 import globalize from '../../lib/globalize';
 import { ServerConnections } from 'lib/jellyfin-apiclient';
 import { appHost } from '../apphost';
@@ -50,7 +52,26 @@ function toggleBitmapSubtitleAspectModeField(view) {
 }
 
 function loadForm(context, user, userSettings, appearanceSettings, apiClient) {
-    apiClient.getCultures().then(function (allCultures) {
+    Promise.all([apiClient.getCultures(), getServerSubtitleFonts(toApi(apiClient)).list()]).then(function ([allCultures, fonts]) {
+        const selectFont = context.querySelector('#selectFont');
+        selectFont.dataset.fontServerId = apiClient.serverId();
+        selectFont.querySelectorAll('[data-server-font]').forEach(option => {
+            option.remove();
+        });
+        for (const font of fonts) {
+            const option = context.ownerDocument.createElement('option');
+            option.value = SERVER_FONT_PREFIX + font.Name;
+            option.textContent = `Jellyfin · ${font.Name}`;
+            option.dataset.serverFont = 'true';
+            selectFont.appendChild(option);
+        }
+        if (appearanceSettings.font?.startsWith(SERVER_FONT_PREFIX) && !fonts.some(font => SERVER_FONT_PREFIX + font.Name === appearanceSettings.font)) {
+            const option = context.ownerDocument.createElement('option');
+            option.value = appearanceSettings.font;
+            option.textContent = `Jellyfin · ${appearanceSettings.font.slice(SERVER_FONT_PREFIX.length)}`;
+            option.dataset.serverFont = 'true';
+            selectFont.appendChild(option);
+        }
         if (appHost.supports(AppFeature.SubtitleBurnIn) && user.Policy.EnableVideoPlaybackTranscoding) {
             context.querySelector('.fldBurnIn').classList.remove('hide');
         }
@@ -175,6 +196,12 @@ function onAppearanceFieldChange(e) {
         window: view.querySelector('.subtitleappearance-fullpreview-window'),
         text: view.querySelector('.subtitleappearance-fullpreview-text')
     }, appearanceSettings);
+    const fontServerId = view.querySelector('#selectFont').dataset.fontServerId;
+    if (fontServerId) {
+        const api = toApi(ServerConnections.getApiClient(fontServerId));
+        void applyServerSubtitleFont(elements.text, api, appearanceSettings.font);
+        void applyServerSubtitleFont(view.querySelector('.subtitleappearance-fullpreview-text'), api, appearanceSettings.font);
+    }
 }
 
 const subtitlePreviewDelay = 1000;

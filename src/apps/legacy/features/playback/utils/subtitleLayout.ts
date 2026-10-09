@@ -1,3 +1,5 @@
+import { getSubtitleFontFamily, usesServerSubtitleFont } from './subtitleFonts';
+
 interface SubtitleAppearance {
     textSize?: string;
     verticalPosition?: string | number;
@@ -24,8 +26,8 @@ export function getTextSubtitleLayout(settings: SubtitleAppearance): Record<stri
             `max(0px, calc(${34 / 720 * 100}vh + ${lineOffset}em))` :
             ''
     };
-    if (!settings.font || settings.font === 'default') {
-        styles['font-family'] = 'Arial,"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif';
+    if (usesServerSubtitleFont(settings.font) || settings.font === 'system') {
+        styles['font-family'] = getSubtitleFontFamily(settings.font);
     }
     if (!settings.dropShadow || settings.dropShadow === 'dropshadow') {
         styles['text-shadow'] = [
