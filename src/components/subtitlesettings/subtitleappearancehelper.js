@@ -4,6 +4,7 @@
  */
 
 import { getTextSubtitleLayout } from 'apps/legacy/features/playback/utils/subtitleLayout';
+import { getSubtitleFontFamily } from 'apps/legacy/features/playback/utils/subtitleFonts';
 
 function getTextStyles(settings, preview) {
     const list = [];
@@ -95,7 +96,7 @@ function getTextStyles(settings, preview) {
             list.push({ name: 'font-variant', value: 'small-caps' });
             break;
         default:
-            list.push({ name: 'font-family', value: '-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol' });
+            list.push({ name: 'font-family', value: getSubtitleFontFamily(settings.font) });
             list.push({ name: 'font-variant', value: 'none' });
             break;
     }

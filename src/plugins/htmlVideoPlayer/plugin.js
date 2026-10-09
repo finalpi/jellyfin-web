@@ -2,6 +2,7 @@ import debounce from 'lodash-es/debounce';
 import Screenfull from 'screenfull';
 
 import { useCustomSubtitles } from 'apps/legacy/features/playback/utils/subtitleStyles';
+import { applyServerSubtitleFont } from 'apps/legacy/features/playback/utils/subtitleFonts';
 import { getSubtitleHtml, normalizeTrackEventText } from 'apps/legacy/features/playback/utils/subtitleText';
 import subtitleAppearanceHelper from 'components/subtitlesettings/subtitleappearancehelper';
 import { AppFeature } from 'constants/appFeature';
@@ -9,6 +10,7 @@ import { PluginType } from 'constants/pluginType';
 import { ServerConnections } from 'lib/jellyfin-apiclient';
 import { currentSettings as userSettings } from 'scripts/settings/userSettings';
 import { MediaError } from 'types/mediaError';
+import { toApi } from 'utils/jellyfin-apiclient/compat';
 
 import browser from '../../scripts/browser';
 import appSettings from '../../scripts/settings/appSettings';
@@ -1558,7 +1560,7 @@ export class HtmlVideoPlayer {
                 subtitlesElement.classList.add('videoSubtitlesInner');
                 subtitlesContainer.appendChild(subtitlesElement);
                 this.#videoSubtitlesElem = subtitlesElement;
-                this.setSubtitleAppearance(subtitlesContainer, this.#videoSubtitlesElem);
+                this.setSubtitleAppearance(subtitlesContainer, this.#videoSubtitlesElem, item);
                 videoElement.parentNode.appendChild(subtitlesContainer);
                 this.#currentTrackEvents = subtitleData.TrackEvents;
             } else if (!this.#videoSecondarySubtitlesElem && this.isSecondaryTrack(targetTextTrackIndex)) {
@@ -1573,7 +1575,7 @@ export class HtmlVideoPlayer {
                     subtitlesContainer.appendChild(secondarySubtitlesElement);
                 }
                 this.#videoSecondarySubtitlesElem = secondarySubtitlesElement;
-                this.setSubtitleAppearance(subtitlesContainer, this.#videoSecondarySubtitlesElem);
+                this.setSubtitleAppearance(subtitlesContainer, this.#videoSecondarySubtitlesElem, item);
                 this.#currentSecondaryTrackEvents = subtitleData.TrackEvents;
             }
         });
@@ -1582,11 +1584,16 @@ export class HtmlVideoPlayer {
     /**
      * @private
      */
-    setSubtitleAppearance(elem, innerElem) {
+    setSubtitleAppearance(elem, innerElem, item) {
+        const appearance = userSettings.getSubtitleAppearanceSettings();
         subtitleAppearanceHelper.applyStyles({
             text: innerElem,
             window: elem
-        }, userSettings.getSubtitleAppearanceSettings());
+        }, appearance);
+        const apiClient = ServerConnections.getApiClient(item);
+        if (apiClient) {
+            void applyServerSubtitleFont(innerElem, toApi(apiClient), appearance.font);
+        }
     }
 
     /**
@@ -1611,7 +1618,22 @@ export class HtmlVideoPlayer {
             document.getElementsByTagName('head')[0].appendChild(styleElem);
         }
 
-        styleElem.innerHTML = this.getCueCss(subtitleAppearanceHelper.getStyles(userSettings.getSubtitleAppearanceSettings()), '.htmlvideoplayer');
+        const settings = userSettings.getSubtitleAppearanceSettings();
+        const appearance = subtitleAppearanceHelper.getStyles(settings);
+        styleElem.innerHTML = this.getCueCss(appearance, '.htmlvideoplayer');
+        const videoElement = this.#mediaElement;
+        const apiClient = this._currentPlayOptions?.item && ServerConnections.getApiClient(this._currentPlayOptions.item);
+        if (videoElement && apiClient) {
+            const api = toApi(apiClient);
+            void applyServerSubtitleFont(videoElement, api, settings.font).then(family => {
+                if (family && this.#mediaElement === videoElement && styleElem.isConnected
+                    && (userSettings.getSubtitleAppearanceSettings().font || '') === (settings.font || '')) {
+                    const text = appearance.text.map(style => style.name === 'font-family' ?
+                        { ...style, value: `"${family}",Arial,sans-serif` } : style);
+                    styleElem.innerHTML = this.getCueCss({ ...appearance, text }, '.htmlvideoplayer');
+                }
+            });
+        }
     }
 
     /**
