@@ -3,6 +3,8 @@
  * @module components/subtitleSettings/subtitleAppearanceHelper
  */
 
+import { getTextSubtitleLayout } from 'apps/legacy/features/playback/utils/subtitleLayout';
+
 function getTextStyles(settings, preview) {
     const list = [];
 
@@ -155,6 +157,14 @@ export function applyStyles(elements, appearanceSettings) {
     }
     if (elements.window) {
         applyStyleList(styles.window, elements.window);
+        const isCustomText = elements.window.classList.contains('videoSubtitles')
+            || elements.window.classList.contains('subtitleappearance-fullpreview-window');
+        if (isCustomText && elements.text && !elements.preview) {
+            for (const [name, value] of Object.entries(getTextSubtitleLayout(appearanceSettings))) {
+                elements.text.style.setProperty(name, value);
+            }
+            elements.window.classList.toggle('videoSubtitles-top', Number(appearanceSettings.verticalPosition) >= 0);
+        }
     }
 }
 export default {

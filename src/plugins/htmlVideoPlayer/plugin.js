@@ -1,8 +1,8 @@
-import DOMPurify from 'dompurify';
 import debounce from 'lodash-es/debounce';
 import Screenfull from 'screenfull';
 
 import { useCustomSubtitles } from 'apps/legacy/features/playback/utils/subtitleStyles';
+import { getSubtitleHtml, normalizeTrackEventText } from 'apps/legacy/features/playback/utils/subtitleText';
 import subtitleAppearanceHelper from 'components/subtitlesettings/subtitleappearancehelper';
 import { AppFeature } from 'constants/appFeature';
 import { PluginType } from 'constants/pluginType';
@@ -155,16 +155,6 @@ function zoomIn(elem) {
             once: true
         });
     });
-}
-
-function normalizeTrackEventText(text, useHtml) {
-    const result = text
-        .replace(/\\N/gi, '\n') // Correct newline characters
-        .replace(/\r/gi, '') // Remove carriage return characters
-        .replace(/{\\.*?}/gi, '') // Remove ass/ssa tags
-        // Force LTR as the default direction
-        .split('\n').map(val => `\u200E${val}`).join('\n');
-    return useHtml ? result.replace(/\n/gi, '<br>') : result;
 }
 
 function getTextTrackUrl(track, item, format) {
@@ -1435,7 +1425,8 @@ export class HtmlVideoPlayer {
                 libassMemoryLimit: 40,
                 libassGlyphLimit: 40,
                 targetFps: videoStream?.ReferenceFrameRate || 24,
-                prescaleFactor: 0.8,
+                // Keep desktop fonts and outlines at canvas resolution.
+                prescaleFactor: browser.mobile ? 0.8 : 1,
                 prescaleHeightLimit: 1080,
                 maxRenderHeight: 2160,
                 resizeVariation: 0.2,
@@ -1715,18 +1706,10 @@ export class HtmlVideoPlayer {
             const subtitleTextElement = subtitleTextElements[i];
 
             if (trackEvents && subtitleTextElement) {
-                const ticks = timeMs * 10000;
-                let selectedTrackEvent;
-                for (const trackEvent of trackEvents) {
-                    if (trackEvent.StartPositionTicks <= ticks && trackEvent.EndPositionTicks >= ticks) {
-                        selectedTrackEvent = trackEvent;
-                        break;
-                    }
-                }
+                const subtitleHtml = getSubtitleHtml(trackEvents, timeMs);
 
-                if (selectedTrackEvent?.Text) {
-                    subtitleTextElement.innerHTML = DOMPurify.sanitize(
-                        normalizeTrackEventText(selectedTrackEvent.Text, true));
+                if (subtitleHtml) {
+                    subtitleTextElement.innerHTML = subtitleHtml;
                     subtitleTextElement.classList.remove('hide');
                 } else {
                     subtitleTextElement.classList.add('hide');

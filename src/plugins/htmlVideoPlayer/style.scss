@@ -79,6 +79,23 @@ video[controls]::-webkit-media-controls {
     margin-bottom: 0.5em !important;
 }
 
+.videoSubtitlesInner,
+.videoSecondarySubtitlesInner {
+    display: flex;
+    flex-direction: column-reverse;
+    white-space: pre-wrap;
+}
+
+.subtitleCue {
+    display: block;
+    overflow-wrap: break-word;
+}
+
+.videoSubtitles-top .videoSubtitlesInner,
+.videoSubtitles-top .videoSecondarySubtitlesInner {
+    flex-direction: column;
+}
+
 @keyframes htmlvideoplayer-zoomin {
     from {
         transform: scale3d(0.2, 0.2, 0.2);
